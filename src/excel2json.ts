@@ -1,5 +1,4 @@
 import * as fs from "fs";
-
 import xlsx from "node-xlsx";
 
 let outPath = "./json";
@@ -13,35 +12,13 @@ for (let path of pathArray) {
     }
 }
 
-// /**
-//  * 字符串格式化
-//  * @param format 格式 
-//  * @param arg 参数
-//  */
-// let stringFormat = function(format : string, ...arg : any[]) {  
-//     let str = String(format);  
-//     for (let i = 0; i < arg.length; i++) {  
-//         let re = new RegExp('\\{' + (i) + '\\}', 'gm');  
-//         str = str.replace(re, arg[i]);
-//     }  
-//     return str; 
-// }
-
-let replaceAll = function(src, s1, s2){ 
+let replaceAll = function(src: string, s1: string | RegExp, s2: string){ 
     return src.replace(new RegExp(s1,"gm"),s2); 
 }
-
-// let writeFile = function(file : string, json : any) {
-//     let jsonString = JSON.stringify(json, null, 4);
-//     let path = "./json/" + file;
-//     path = replaceAll(path, '.xlsx', '.json');
-//     fs.writeFileSync(path, jsonString);
-// }
 
 let writeServerFile = function(file : string, json : any) {
     let jsonString = JSON.stringify(json, null, 4);
     let path = serverOutPath + "/" + file;
-    // path = replaceAll(path, '.xlsx', '.json');
     fs.writeFileSync(path, jsonString);
     console.log("File Success : " + path);
 }
@@ -65,7 +42,7 @@ fs.readdir(excelPath, (err: NodeJS.ErrnoException, files: string[]) => {
     }
 });
 
-let excelArray = function(xlsx, fileName, sheetName) {
+let excelArray = function(xlsx: string | any[], fileName: any, sheetName: string) {
     let jsonFileName = sheetName + ".json";
 
     let keyArray = [];
@@ -77,49 +54,40 @@ let excelArray = function(xlsx, fileName, sheetName) {
     const TypeFloat = "float";
     const TypeInt = "int";
     const TypeJson = "json";
+    const FlagBreak = "flag_break"
 
     let dateLine = 4;
     let typeLine = xlsx[3];
     let keyLine = xlsx[2];
     let nameDesc = {};
 
-    console.log("typeLine :" + typeLine)
-    console.log("keyLine :" + keyLine)
-
-    for (let k in keyLine) {
+    for (let k = 0; k < keyLine.length; ++k) {
         let key = keyLine[k];
-        // 屏蔽KEY中空格
-        key = replaceAll(key, ' ', '');
-        keyArray.push(key);
-        let typeString : string = typeLine[k];
-        let c : boolean = true;
-        let s : boolean = true;
-        // if (typeString.indexOf("-C") != -1 || typeString.indexOf("-c") != -1) {
-        //     c = false;
-        // } else if (typeString.indexOf("-S") != -1 || typeString.indexOf("-s") != -1) {
-        //     s = false;
-        // }
-
-        // let keyTypeString : string = replaceAll(typeString, '-C', '');
-        // keyTypeString = replaceAll(keyTypeString, '-c', '');
-        // keyTypeString = replaceAll(keyTypeString, '-s', '');
-        // keyTypeString = replaceAll(keyTypeString, '-S', '');
-        let type = "";
-        let keyTypeString = typeString;
-        console.log("keyTypeString :" + keyTypeString)
-        if (keyTypeString.toUpperCase() == "STRING") {
-            type = TypeString;
-        } else if (keyTypeString.toUpperCase() == "FLOAT" || keyTypeString.toUpperCase() == "NUMBER") {
-            type = TypeFloat;
-        } else if (keyTypeString.toUpperCase() == "INT") {
-            type = TypeInt;
-        } else if (keyTypeString.toUpperCase() == "JSON") {
-            type = TypeJson;
+        console.log("key: " + key);
+        if(key == undefined) {
+            keyArray.push(FlagBreak);
+            continue;
         } else {
-            throw("Invalid type : " + keyTypeString);
+            // 屏蔽KEY中空格
+            key = replaceAll(key, ' ', '');
         }
         
-        nameDesc[key] = { type : type, c : c, s : s };
+        keyArray.push(key);
+        let typeString : string = typeLine[k];
+        let type = "";
+        if (typeString.toUpperCase() == "STRING") {
+            type = TypeString;
+        } else if (typeString.toUpperCase() == "FLOAT" || typeString.toUpperCase() == "NUMBER") {
+            type = TypeFloat;
+        } else if (typeString.toUpperCase() == "INT") {
+            type = TypeInt;
+        } else if (typeString.toUpperCase() == "JSON") {
+            type = TypeJson;
+        } else {
+            throw("Invalid type : " + typeString);
+        }
+        
+        nameDesc[key] = { type : type};
     }
 
     let sdata = [];
@@ -134,7 +102,7 @@ let excelArray = function(xlsx, fileName, sheetName) {
         for (let k = 0; k < keyArray.length; ++k) {
             let value = lineData[k];
             let key = keyArray[k];
-            if (!nameDesc[key].s) {
+            if(key == FlagBreak) {
                 continue;
             }
             let type = nameDesc[key].type;
@@ -175,14 +143,11 @@ let excelArray = function(xlsx, fileName, sheetName) {
     writeServerFile(jsonFileName, sdata);
 }
 
-let parseXlsx = function(excelPath, fileName) {
+let parseXlsx = function(excelPath: string, fileName: string) {
     let fileFullPath = excelPath + "/" + fileName;
     const workSheetsFromFile = xlsx.parse(fileFullPath);
-    // let data = [];
     for (let k in workSheetsFromFile) {
         let sheetName = workSheetsFromFile[k].name;
-        let coData = excelArray(workSheetsFromFile[k].data, fileName, sheetName);
-        // data.push(coData);
+        excelArray(workSheetsFromFile[k].data, fileName, sheetName);
     }
-    // return data;
 }
