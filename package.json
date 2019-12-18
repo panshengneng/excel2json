@@ -1,0 +1,24 @@
+{
+  "requires": true,
+  "lockfileVersion": 1,
+  "dependencies": {
+    "@types/node-xlsx": "^0.12.1",
+    "fs": "0.0.1-security",
+    "node-xlsx": "^0.14.1"
+  },
+  "name": "excel2json",
+  "version": "1.0.0",
+  "description": "write by vital_isbb",
+  "main": "./bin/excel2json.js",
+  "bin": {
+    "excel2json": "excel2json.js"
+  },
+  "devDependencies": {
+    "@types/node": "^11.13.7"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "vital_isbb",
+  "license": "ISC"
+}
