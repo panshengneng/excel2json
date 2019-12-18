@@ -1,44 +1,47 @@
 import * as fs from "fs";
 import xlsx from "node-xlsx";
 
-let outPath = "./json";
-let serverOutPath = outPath + "/server";
+let inExcelPath: string = process.argv[2];
+let outJsonPath: string = process.argv[3];
+console.log("inExcelPath: " + inExcelPath)
+console.log("outJsonPath :" + outJsonPath)
 
-let pathArray = [outPath, serverOutPath];
-
-for (let path of pathArray) {
-    if (!fs.existsSync(path)) {
-        fs.mkdirSync(path);
-    }
+if (!fs.existsSync(outJsonPath)) {
+    fs.mkdirSync(outJsonPath);
 }
 
 let replaceAll = function(src: string, s1: string | RegExp, s2: string){ 
     return src.replace(new RegExp(s1,"gm"),s2); 
 }
 
-let writeServerFile = function(file : string, json : any) {
+let writeFile = function(file : string, json : any) {
     let jsonString = JSON.stringify(json, null, 4);
-    let path = serverOutPath + "/" + file;
+    let path = outJsonPath + "/" + file;
     fs.writeFileSync(path, jsonString);
     console.log("File Success : " + path);
 }
 
-let excelPath : string = "./excel";
-fs.readdir(excelPath, (err: NodeJS.ErrnoException, files: string[]) => {
+fs.readdir(inExcelPath, (err: NodeJS.ErrnoException, files: string[]) => {
+   
     if (err) {
         console.log("Error");
-        console.log("Excel Path :" + excelPath);
+        console.log("Excel Path :" + inExcelPath);
         return;
     }
     for (let fileName of files) {
+        
         if (fileName.indexOf("~$") != -1) {
+            continue;
+        }
+        if (fileName.indexOf(".DS_Store") != -1) {
             continue;
         }
         if (fileName.indexOf(".xlsx") == -1 && fileName.indexOf(".xls") == -1) {
             continue;
         }
 
-        parseXlsx(excelPath, fileName);
+        console.log("inExcelPath: " + fileName)
+        parseXlsx(inExcelPath, fileName);
     }
 });
 
@@ -54,16 +57,30 @@ let excelArray = function(xlsx: string | any[], fileName: any, sheetName: string
     const TypeFloat = "float";
     const TypeInt = "int";
     const TypeJson = "json";
+    const TypeListInt = "list<int>"
     const FlagBreak = "flag_break"
 
-    let dateLine = 4;
-    let typeLine = xlsx[3];
-    let keyLine = xlsx[2];
+    // 获取第几行开始读表
+    let nodeIndex = 1;
+    for(let noteLind = 1; noteLind < xlsx.length; ++noteLind) {
+        let note = xlsx[noteLind][0];
+        // console.log(note)
+        if(note.indexOf("#") != -1) {
+            nodeIndex++;
+            continue;
+        } else {
+            break;
+        }
+    }
+    // console.log(nodeIndex)
+
+    let dateLine = nodeIndex + 2;
+    let typeLine = xlsx[nodeIndex + 1];
+    let keyLine = xlsx[nodeIndex];
     let nameDesc = {};
 
     for (let k = 0; k < keyLine.length; ++k) {
         let key = keyLine[k];
-        console.log("key: " + key);
         if(key == undefined) {
             keyArray.push(FlagBreak);
             continue;
@@ -83,6 +100,8 @@ let excelArray = function(xlsx: string | any[], fileName: any, sheetName: string
             type = TypeInt;
         } else if (typeString.toUpperCase() == "JSON") {
             type = TypeJson;
+        } else if (typeString.toUpperCase() == "LIST<INT>") {
+            type = TypeListInt;
         } else {
             throw("Invalid type : " + typeString);
         }
@@ -131,6 +150,11 @@ let excelArray = function(xlsx: string | any[], fileName: any, sheetName: string
                     if (value != null && typeValue == null) {
                         throw("error");
                     }
+                } else if (type == TypeListInt) {
+                    // typeValue = value ? JSON.parse(value) : "";
+                    // if (value != null && typeValue == null) {
+                    //     throw("error");
+                    // }
                 }
             } catch (e) {
                 console.log('Error, Excel :' + sheetName + ', key :\"' + key + '\", Type : ' + type + ', value :\"' + value + '\", line :' + (line + 1));
@@ -140,7 +164,7 @@ let excelArray = function(xlsx: string | any[], fileName: any, sheetName: string
         }
         sdata.push(da);
     }
-    writeServerFile(jsonFileName, sdata);
+    writeFile(jsonFileName, sdata);
 }
 
 let parseXlsx = function(excelPath: string, fileName: string) {

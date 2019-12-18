@@ -2,58 +2,40 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs = require("fs");
 const node_xlsx_1 = require("node-xlsx");
-let outPath = "./json";
-let serverOutPath = outPath + "/server";
-let pathArray = [outPath, serverOutPath];
-for (let path of pathArray) {
-    if (!fs.existsSync(path)) {
-        fs.mkdirSync(path);
-    }
+let inExcelPath = process.argv[2];
+let outJsonPath = process.argv[3];
+console.log("inExcelPath: " + inExcelPath);
+console.log("outJsonPath :" + outJsonPath);
+if (!fs.existsSync(outJsonPath)) {
+    fs.mkdirSync(outJsonPath);
 }
-// /**
-//  * 字符串格式化
-//  * @param format 格式 
-//  * @param arg 参数
-//  */
-// let stringFormat = function(format : string, ...arg : any[]) {  
-//     let str = String(format);  
-//     for (let i = 0; i < arg.length; i++) {  
-//         let re = new RegExp('\\{' + (i) + '\\}', 'gm');  
-//         str = str.replace(re, arg[i]);
-//     }  
-//     return str; 
-// }
 let replaceAll = function (src, s1, s2) {
     return src.replace(new RegExp(s1, "gm"), s2);
 };
-// let writeFile = function(file : string, json : any) {
-//     let jsonString = JSON.stringify(json, null, 4);
-//     let path = "./json/" + file;
-//     path = replaceAll(path, '.xlsx', '.json');
-//     fs.writeFileSync(path, jsonString);
-// }
-let writeServerFile = function (file, json) {
+let writeFile = function (file, json) {
     let jsonString = JSON.stringify(json, null, 4);
-    let path = serverOutPath + "/" + file;
-    // path = replaceAll(path, '.xlsx', '.json');
+    let path = outJsonPath + "/" + file;
     fs.writeFileSync(path, jsonString);
     console.log("File Success : " + path);
 };
-let excelPath = "./excel";
-fs.readdir(excelPath, (err, files) => {
+fs.readdir(inExcelPath, (err, files) => {
     if (err) {
         console.log("Error");
-        console.log("Excel Path :" + excelPath);
+        console.log("Excel Path :" + inExcelPath);
         return;
     }
     for (let fileName of files) {
         if (fileName.indexOf("~$") != -1) {
             continue;
         }
+        if (fileName.indexOf(".DS_Store") != -1) {
+            continue;
+        }
         if (fileName.indexOf(".xlsx") == -1 && fileName.indexOf(".xls") == -1) {
             continue;
         }
-        parseXlsx(excelPath, fileName);
+        console.log("inExcelPath: " + fileName);
+        parseXlsx(inExcelPath, fileName);
     }
 });
 let excelArray = function (xlsx, fileName, sheetName) {
@@ -66,48 +48,58 @@ let excelArray = function (xlsx, fileName, sheetName) {
     const TypeFloat = "float";
     const TypeInt = "int";
     const TypeJson = "json";
-    let dateLine = 4;
-    let typeLine = xlsx[3];
-    let keyLine = xlsx[2];
-    let nameDesc = {};
-    console.log("typeLine :" + typeLine);
-    console.log("keyLine :" + keyLine);
-    for (let k in keyLine) {
-        let key = keyLine[k];
-        // 屏蔽KEY中空格
-        key = replaceAll(key, ' ', '');
-        keyArray.push(key);
-        let typeString = typeLine[k];
-        let c = true;
-        let s = true;
-        // if (typeString.indexOf("-C") != -1 || typeString.indexOf("-c") != -1) {
-        //     c = false;
-        // } else if (typeString.indexOf("-S") != -1 || typeString.indexOf("-s") != -1) {
-        //     s = false;
-        // }
-        // let keyTypeString : string = replaceAll(typeString, '-C', '');
-        // keyTypeString = replaceAll(keyTypeString, '-c', '');
-        // keyTypeString = replaceAll(keyTypeString, '-s', '');
-        // keyTypeString = replaceAll(keyTypeString, '-S', '');
-        let type = "";
-        let keyTypeString = typeString;
-        console.log("keyTypeString :" + keyTypeString);
-        if (keyTypeString.toUpperCase() == "STRING") {
-            type = TypeString;
-        }
-        else if (keyTypeString.toUpperCase() == "FLOAT" || keyTypeString.toUpperCase() == "NUMBER") {
-            type = TypeFloat;
-        }
-        else if (keyTypeString.toUpperCase() == "INT") {
-            type = TypeInt;
-        }
-        else if (keyTypeString.toUpperCase() == "JSON") {
-            type = TypeJson;
+    const TypeListInt = "list<int>";
+    const FlagBreak = "flag_break";
+    // 获取第几行开始读表
+    let nodeIndex = 1;
+    for (let noteLind = 1; noteLind < xlsx.length; ++noteLind) {
+        let note = xlsx[noteLind][0];
+        // console.log(note)
+        if (note.indexOf("#") != -1) {
+            nodeIndex++;
+            continue;
         }
         else {
-            throw ("Invalid type : " + keyTypeString);
+            break;
         }
-        nameDesc[key] = { type: type, c: c, s: s };
+    }
+    // console.log(nodeIndex)
+    let dateLine = nodeIndex + 2;
+    let typeLine = xlsx[nodeIndex + 1];
+    let keyLine = xlsx[nodeIndex];
+    let nameDesc = {};
+    for (let k = 0; k < keyLine.length; ++k) {
+        let key = keyLine[k];
+        if (key == undefined) {
+            keyArray.push(FlagBreak);
+            continue;
+        }
+        else {
+            // 屏蔽KEY中空格
+            key = replaceAll(key, ' ', '');
+        }
+        keyArray.push(key);
+        let typeString = typeLine[k];
+        let type = "";
+        if (typeString.toUpperCase() == "STRING") {
+            type = TypeString;
+        }
+        else if (typeString.toUpperCase() == "FLOAT" || typeString.toUpperCase() == "NUMBER") {
+            type = TypeFloat;
+        }
+        else if (typeString.toUpperCase() == "INT") {
+            type = TypeInt;
+        }
+        else if (typeString.toUpperCase() == "JSON") {
+            type = TypeJson;
+        }
+        else if (typeString.toUpperCase() == "LIST<INT>") {
+            type = TypeListInt;
+        }
+        else {
+            throw ("Invalid type : " + typeString);
+        }
+        nameDesc[key] = { type: type };
     }
     let sdata = [];
     for (let line = dateLine; line < xlsx.length; ++line) {
@@ -119,7 +111,7 @@ let excelArray = function (xlsx, fileName, sheetName) {
         for (let k = 0; k < keyArray.length; ++k) {
             let value = lineData[k];
             let key = keyArray[k];
-            if (!nameDesc[key].s) {
+            if (key == FlagBreak) {
                 continue;
             }
             let type = nameDesc[key].type;
@@ -152,6 +144,12 @@ let excelArray = function (xlsx, fileName, sheetName) {
                         throw ("error");
                     }
                 }
+                else if (type == TypeListInt) {
+                    // typeValue = value ? JSON.parse(value) : "";
+                    // if (value != null && typeValue == null) {
+                    //     throw("error");
+                    // }
+                }
             }
             catch (e) {
                 console.log('Error, Excel :' + sheetName + ', key :\"' + key + '\", Type : ' + type + ', value :\"' + value + '\", line :' + (line + 1));
@@ -161,17 +159,14 @@ let excelArray = function (xlsx, fileName, sheetName) {
         }
         sdata.push(da);
     }
-    writeServerFile(jsonFileName, sdata);
+    writeFile(jsonFileName, sdata);
 };
 let parseXlsx = function (excelPath, fileName) {
     let fileFullPath = excelPath + "/" + fileName;
     const workSheetsFromFile = node_xlsx_1.default.parse(fileFullPath);
-    // let data = [];
     for (let k in workSheetsFromFile) {
         let sheetName = workSheetsFromFile[k].name;
-        let coData = excelArray(workSheetsFromFile[k].data, fileName, sheetName);
-        // data.push(coData);
+        excelArray(workSheetsFromFile[k].data, fileName, sheetName);
     }
-    // return data;
 };
 //# sourceMappingURL=excel2json.js.map
